@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="orange_primary">#E8650A</color>
+    <color name="orange_dark">#C4540A</color>
+    <color name="orange_light">#FFF3EC</color>
+    <color name="green_accent">#4CAF50</color>
+    <color name="green_light">#E8F5E9</color>
+    <color name="live_red">#E53935</color>
+    <color name="text_primary">#1A1A1A</color>
+    <color name="text_secondary">#757575</color>
+    <color name="text_hint">#BDBDBD</color>
+    <color name="background">#F5F5F5</color>
+    <color name="white">#FFFFFF</color>
+    <color name="card_bg">#FFFFFF</color>
+    <color name="divider">#E0E0E0</color>
+    <color name="sport_selected_bg">#E8F5E9</color>
+    <color name="sport_selected_border">#4CAF50</color>
+    <color name="tab_active">#E8650A</color>
+    <color name="tab_inactive">#9E9E9E</color>
+    <color name="bracket_line">#BDBDBD</color>
+    <color name="step_active">#E8650A</color>
+    <color name="step_inactive">#BDBDBD</color>
+    <color name="nav_bar_bg">#FFFFFF</color>
+    <color name="toolbar_bg">#FFFFFF</color>
+    <color name="format_selected_bg">#E8F5E9</color>
+    <color name="format_selected_border">#4CAF50</color>
+</resources>

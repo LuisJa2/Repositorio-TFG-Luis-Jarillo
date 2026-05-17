@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ArenaMix</string>
+    <string name="welcome_title">ARENA MIX</string>
+    <string name="explore_tournaments">EXPLORA TUS TORNEOS ACTIVOS</string>
+    <string name="register">REGÍSTRATE</string>
+    <string name="login">INICIA SESIÓN</string>
+    <string name="continue_guest">Pasar al inicio (Invitado)</string>
+    <string name="customize_arena">Personaliza tu arena</string>
+    <string name="home_title">Inicio</string>
+    <string name="welcome_back">Bienvenido</string>
+    <string name="active_tournaments">Tus torneos activos</string>
+    <string name="available_sports">Deportes disponibles</string>
+    <string name="create_tournament">CREAR NUEVO TORNEO</string>
+    <string name="sport_label">Deporte</string>
+    <string name="format_label">Formato de torneo</string>
+    <string name="choose_format">Elige formato de torneo:</string>
+    <string name="continue_btn">CONTINUAR</string>
+    <string name="tournament_matches">ENFRENTAMIENTOS DEL TORNEO</string>
+    <string name="tab_info">INFORMACIÓN</string>
+    <string name="tab_teams">EQUIPOS</string>
+    <string name="tab_matches">PARTIDOS</string>
+    <string name="quarter_finals">CUARTOS DE FINAL</string>
+    <string name="semi_finals">SEMI-FINALS</string>
+    <string name="final_label">FINAL</string>
+    <string name="live_label">LIVE</string>
+    <string name="futbol">Fútbol</string>
+    <string name="padel">Padel</string>
+    <string name="basket">Basket</string>
+    <string name="nav_home">Inicio</string>
+    <string name="nav_tournaments">Mis torneos</string>
+    <string name="nav_profile">Perfil</string>
+    <string name="participants">Participantes</string>
+    <string name="torneo_step">Torneo</string>
+    <string name="format_torneo">Torneo</string>
+    <string name="format_groups">Fase de grupos + torneo</string>
+    <string name="format_liga">Liga</string>
+    <string name="semifinal">SEMIFINAL</string>
+</resources>
