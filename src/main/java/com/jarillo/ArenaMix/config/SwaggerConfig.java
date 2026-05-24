@@ -1,0 +1,35 @@
+package com.jarillo.ArenaMix.config;
+
+import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Contact;
+import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class SwaggerConfig {
+
+    @Bean
+    public OpenAPI openAPI() {
+        return new OpenAPI()
+            .info(new Info()
+                .title("ArenaMix API")
+                .description("API REST para la gestión de torneos deportivos de ArenaMix. " +
+                             "Endpoints protegidos requieren un token JWT en la cabecera Authorization.")
+                .version("1.0.0")
+                .contact(new Contact()
+                    .name("Luis Jarillo")
+                    .email("luis@arenamix.com")))
+            .addSecurityItem(new SecurityRequirement().addList("Bearer"))
+            .components(new Components()
+                .addSecuritySchemes("Bearer", new SecurityScheme()
+                    .name("Bearer")
+                    .type(SecurityScheme.Type.HTTP)
+                    .scheme("bearer")
+                    .bearerFormat("JWT")
+                    .description("Introduce el token JWT obtenido en /api/auth/login o /api/auth/registro")));
+    }
+}

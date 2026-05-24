@@ -1,0 +1,20 @@
+spring.application.name=ArenaMix
+
+# Railway injects PORT automatically; locally defaults to 8080
+server.port=${PORT:8080}
+
+# Database — set these environment variables before running
+# Copy this file to application.properties and fill in real values (do NOT commit application.properties)
+spring.datasource.url=${DATABASE_URL}
+# Example: jdbc:mysql://your-host:3306/your-db?useSSL=false&allowPublicKeyRetrieval=true
+spring.datasource.username=${DATABASE_USER}
+spring.datasource.password=${DATABASE_PASSWORD}
+
+# JPA / Hibernate
+spring.jpa.show-sql=false
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
+
+# JWT — use a strong random secret (256-bit minimum)
+jwt.secreto=${JWT_SECRET}
+jwt.expiracion.ms=86400000

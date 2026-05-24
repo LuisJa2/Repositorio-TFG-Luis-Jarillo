@@ -1,0 +1,10 @@
+package com.jarillo.ArenaMix.repositories;
+import com.jarillo.ArenaMix.models.Participante;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface ParticipanteRepository extends JpaRepository<Participante, Integer> {
+
+    void deleteByTorneo_Id(Integer torneoId);
+}
