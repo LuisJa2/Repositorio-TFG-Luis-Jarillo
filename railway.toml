@@ -3,6 +3,4 @@ builder = "nixpacks"
 
 [deploy]
 startCommand = "java -jar target/ArenaMix-0.0.1-SNAPSHOT.jar"
-healthcheckPath = "/api/torneos"
-healthcheckTimeout = 100
 restartPolicyType = "on_failure"
