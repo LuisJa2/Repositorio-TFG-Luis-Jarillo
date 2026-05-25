@@ -6,5 +6,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface PartidoRepository extends JpaRepository<Partido, Integer> {
 
+    java.util.List<Partido> findByTorneo_IdOrderByRondaAsc(Integer torneoId);
     void deleteByTorneo_Id(Integer torneoId);
 }

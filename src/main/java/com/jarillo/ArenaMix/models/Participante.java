@@ -15,8 +15,11 @@ public class Participante {
     @JoinColumn(name = "torneo_id")
     private Torneo torneo;
 
+    @Column(name = "nombre", length = 100)
+    private String nombre;
+
     @ManyToOne
-    @JoinColumn(name = "usuario_id")
+    @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 
     @Column(name = "fecha_inscripcion", insertable = false, updatable = false)
@@ -27,6 +30,9 @@ public class Participante {
     // Getters y Setters
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
+
+    public String getNombre() { return nombre; }
+    public void setNombre(String nombre) { this.nombre = nombre; }
 
     public Torneo getTorneo() { return torneo; }
     public void setTorneo(Torneo torneo) { this.torneo = torneo; }

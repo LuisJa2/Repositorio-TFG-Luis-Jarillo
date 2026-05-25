@@ -25,4 +25,16 @@ export const crearTorneo = (data) => api.post('/torneos', data)
 export const eliminarTorneo = (id) => api.delete(`/torneos/${id}`)
 export const finalizarTorneo = (id) => api.patch(`/torneos/${id}/finalizar`)
 
+// Participantes
+export const getParticipantes    = (torneoId)       => api.get(`/torneos/${torneoId}/participantes`)
+export const addParticipante     = (torneoId, data) => api.post(`/torneos/${torneoId}/participantes`, data)
+export const removeParticipante  = (torneoId, pid)  => api.delete(`/torneos/${torneoId}/participantes/${pid}`)
+
+// Partidos
+export const getPartidos         = (torneoId)  => api.get(`/torneos/${torneoId}/partidos`)
+export const generarPartidos     = (torneoId)  => api.post(`/torneos/${torneoId}/partidos/generar`)
+export const siguienteRonda      = (torneoId)  => api.post(`/torneos/${torneoId}/partidos/siguiente-ronda`)
+export const actualizarResultado = (id, data)  => api.put(`/partidos/${id}/resultado`, data)
+export const simularPartido      = (id)        => api.post(`/partidos/${id}/simular`)
+
 export default api
