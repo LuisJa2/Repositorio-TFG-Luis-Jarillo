@@ -4,7 +4,7 @@ import Navbar from '../components/Navbar'
 import {
   getTorneoById, eliminarTorneo, finalizarTorneo,
   getParticipantes, addParticipante, removeParticipante,
-  getPartidos, generarPartidos, siguienteRonda,
+  getPartidos, generarPartidos, siguienteRonda, generarEliminacion,
   actualizarResultado, simularPartido,
 } from '../api/api'
 import { useAuth } from '../context/AuthContext'
@@ -142,11 +142,11 @@ function EquiposTab({ torneo, user }) {
   )
 }
 
-// ── Tab Bracket / Liga ─────────────────────────────────────────────────────────
+// ── Tab Bracket / Liga / Grupos ────────────────────────────────────────────────
 function PartidosTab({ torneo, user }) {
   const [partidos, setPartidos] = useState([])
   const [loading, setLoading] = useState(true)
-  const [scores, setScores] = useState({}) // { partidoId: { local, visitante } }
+  const [scores, setScores] = useState({})
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -195,51 +195,164 @@ function PartidosTab({ torneo, user }) {
     }
   }
 
+  const handleGenerarEliminacion = async () => {
+    try {
+      await generarEliminacion(torneo.id)
+      cargar()
+    } catch (err) {
+      alert(err.response?.data?.mensaje ?? 'Error al generar la fase eliminatoria.')
+    }
+  }
+
   if (loading) return <div className="spinner" style={{ margin: '40px auto' }} />
 
-  const esLiga = torneo.formato === 'LIGA' || torneo.formato === 'GROUPS_TOURNAMENT'
+  const esGrupos     = torneo.formato === 'GROUPS_TOURNAMENT'
+  const esLiga       = torneo.formato === 'LIGA'
   const esTournament = torneo.formato === 'TOURNAMENT'
 
-  // Agrupar por ronda
-  const rondas = {}
-  partidos.forEach(p => {
-    if (!rondas[p.ronda]) rondas[p.ronda] = []
-    rondas[p.ronda].push(p)
-  })
-  const rondasOrdenadas = Object.keys(rondas).map(Number).sort((a, b) => a - b)
-  const maxRonda = rondasOrdenadas[rondasOrdenadas.length - 1]
-  const rondaActualDone = rondas[maxRonda]?.every(p => p.estado === 'FINALIZADO')
+  // Para GROUPS_TOURNAMENT: separar fases
+  const gruposPartidos = esGrupos ? partidos.filter(p => p.ronda === 1) : []
+  const elimPartidos   = esGrupos ? partidos.filter(p => p.ronda > 1)  : []
+  const todosGruposFin = gruposPartidos.length > 0 && gruposPartidos.every(p => p.estado === 'FINALIZADO')
+  const sinFaseElim    = elimPartidos.length === 0
 
-  // Etiqueta de ronda para TOURNAMENT
-  const labelRonda = (ronda, total) => {
-    const restantes = total - ronda
+  // Agrupar partidos por ronda
+  const agrupar = (lista) => {
+    const m = {}
+    lista.forEach(p => {
+      if (!m[p.ronda]) m[p.ronda] = []
+      m[p.ronda].push(p)
+    })
+    return m
+  }
+
+  const rondasTournament    = agrupar(partidos)
+  const rondasElim          = agrupar(elimPartidos)
+  const rondasOrdTournament = Object.keys(rondasTournament).map(Number).sort((a, b) => a - b)
+  const rondasOrdElim       = Object.keys(rondasElim).map(Number).sort((a, b) => a - b)
+  const maxRondaTournament  = rondasOrdTournament[rondasOrdTournament.length - 1]
+  const maxRondaElim        = rondasOrdElim[rondasOrdElim.length - 1]
+  const rondaTournamentDone = rondasTournament[maxRondaTournament]?.every(p => p.estado === 'FINALIZADO')
+  const rondaElimDone       = rondasElim[maxRondaElim]?.every(p => p.estado === 'FINALIZADO')
+
+  // Etiqueta de ronda por índice (idx=0 es la primera ronda, idx=total-1 es la final)
+  const labelRondaIdx = (idx, total) => {
+    const restantes = total - idx - 1
     if (restantes === 0) return '🏆 Final'
     if (restantes === 1) return '🥈 Semifinales'
     if (restantes === 2) return '🎯 Cuartos de final'
-    return `Ronda ${ronda}`
+    return `Ronda ${idx + 1}`
   }
 
-  // Clasificación para LIGA
+  // Clasificación — para LIGA usa todos; para GROUPS_TOURNAMENT solo ronda=1
+  const sourceStandings = esGrupos ? gruposPartidos : (esLiga ? partidos : [])
   const standings = {}
-  if (esLiga) {
-    partidos.forEach(p => {
-      if (!standings[p.nombreLocal])    standings[p.nombreLocal]    = { pj:0,g:0,e:0,pe:0,gf:0,gc:0,pts:0 }
-      if (!standings[p.nombreVisitante]) standings[p.nombreVisitante] = { pj:0,g:0,e:0,pe:0,gf:0,gc:0,pts:0 }
-      if (p.estado === 'FINALIZADO') {
-        const l = standings[p.nombreLocal]
-        const v = standings[p.nombreVisitante]
-        l.pj++; v.pj++
-        l.gf += p.puntosLocal;    l.gc += p.puntosVisitante
-        v.gf += p.puntosVisitante; v.gc += p.puntosLocal
-        if (p.puntosLocal > p.puntosVisitante)  { l.g++; l.pts+=3; v.pe++ }
-        else if (p.puntosLocal < p.puntosVisitante) { v.g++; v.pts+=3; l.pe++ }
-        else { l.e++; l.pts++; v.e++; v.pts++ }
-      }
-    })
-  }
+  sourceStandings.forEach(p => {
+    if (!standings[p.nombreLocal])     standings[p.nombreLocal]     = { pj:0,g:0,e:0,pe:0,gf:0,gc:0,pts:0 }
+    if (!standings[p.nombreVisitante]) standings[p.nombreVisitante] = { pj:0,g:0,e:0,pe:0,gf:0,gc:0,pts:0 }
+    if (p.estado === 'FINALIZADO') {
+      const l = standings[p.nombreLocal]
+      const v = standings[p.nombreVisitante]
+      l.pj++; v.pj++
+      l.gf += p.puntosLocal;     l.gc += p.puntosVisitante
+      v.gf += p.puntosVisitante; v.gc += p.puntosLocal
+      if (p.puntosLocal > p.puntosVisitante)      { l.g++; l.pts+=3; v.pe++ }
+      else if (p.puntosLocal < p.puntosVisitante) { v.g++; v.pts+=3; l.pe++ }
+      else { l.e++; l.pts++; v.e++; v.pts++ }
+    }
+  })
   const standingsList = Object.entries(standings)
     .map(([nombre, s]) => ({ nombre, ...s, gd: s.gf - s.gc }))
     .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
+
+  // ── Helpers de render ──────────────────────────────────────────────────────
+  const renderPartido = (partido) => {
+    const done = partido.estado === 'FINALIZADO'
+    const ganadorLocal = done && partido.puntosLocal > partido.puntosVisitante
+    const ganadorVis   = done && partido.puntosVisitante > partido.puntosLocal
+    const s = scores[partido.id] ?? { local: '', visitante: '' }
+    return (
+      <div key={partido.id} className="card" style={{
+        padding: '14px 18px', marginBottom: '10px',
+        display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap'
+      }}>
+        <span style={{ flex: 1, fontWeight: ganadorLocal ? 700 : 400,
+          color: ganadorLocal ? 'var(--primary)' : 'inherit', textAlign: 'right' }}>
+          {ganadorLocal ? '🏆 ' : ''}{partido.nombreLocal}
+        </span>
+
+        {done ? (
+          <span style={{ fontWeight: 800, fontSize: '18px', minWidth: '60px', textAlign: 'center' }}>
+            {partido.puntosLocal} – {partido.puntosVisitante}
+          </span>
+        ) : user && torneo.estado !== 'FINALIZADO' ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <input type="number" min="0" max="99" value={s.local}
+              onChange={e => setScores(prev => ({ ...prev, [partido.id]: { ...s, local: e.target.value } }))}
+              style={{ width: '52px', textAlign: 'center', padding: '6px' }}
+            />
+            <span style={{ fontWeight: 700 }}>–</span>
+            <input type="number" min="0" max="99" value={s.visitante}
+              onChange={e => setScores(prev => ({ ...prev, [partido.id]: { ...s, visitante: e.target.value } }))}
+              style={{ width: '52px', textAlign: 'center', padding: '6px' }}
+            />
+          </div>
+        ) : (
+          <span style={{ color: 'var(--text-secondary)', minWidth: '60px', textAlign: 'center' }}>vs</span>
+        )}
+
+        <span style={{ flex: 1, fontWeight: ganadorVis ? 700 : 400,
+          color: ganadorVis ? 'var(--primary)' : 'inherit' }}>
+          {ganadorVis ? '🏆 ' : ''}{partido.nombreVisitante}
+        </span>
+
+        {!done && user && torneo.estado !== 'FINALIZADO' && (
+          <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+            <button className="btn" style={{ padding: '6px 12px', fontSize: '13px', background: '#1565c0', color: '#fff' }}
+              onClick={() => handleGuardar(partido.id)}>✓ Guardar</button>
+            <button className="btn" style={{ padding: '6px 12px', fontSize: '13px', background: '#6a1b9a', color: '#fff' }}
+              onClick={() => handleSimular(partido.id)}>🎲 Simular</button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderStandingsTable = (titulo) => (
+    standingsList.length > 0 && (
+      <div className="card" style={{ padding: '16px 20px', marginBottom: '20px', overflowX: 'auto' }}>
+        <h3 style={{ fontWeight: 700, marginBottom: '12px' }}>{titulo}</h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+          <thead>
+            <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--divider)' }}>
+              {['#','Equipo','PJ','G','E','P','GF','GC','GD','Pts'].map(h => (
+                <th key={h} style={{ padding: '6px 8px', textAlign: h==='Equipo'?'left':'center', fontWeight: 600 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {standingsList.map((s, i) => (
+              <tr key={s.nombre} style={{ borderBottom: '1px solid var(--divider)' }}>
+                <td style={{ padding: '8px', textAlign:'center', color:'var(--text-secondary)' }}>{i+1}</td>
+                <td style={{ padding: '8px', fontWeight: 600 }}>{s.nombre}</td>
+                {[s.pj,s.g,s.e,s.pe,s.gf,s.gc,s.gd>=0?`+${s.gd}`:s.gd,s.pts].map((v,j) => (
+                  <td key={j} style={{ padding:'8px', textAlign:'center',
+                    fontWeight: j===7?700:400, color: j===7?'var(--primary)':'inherit' }}>{v}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  )
+
+  const sectionHeader = (texto) => (
+    <h2 style={{
+      fontWeight: 800, fontSize: '16px', marginBottom: '14px',
+      color: 'var(--primary)', borderBottom: '2px solid var(--primary)', paddingBottom: '8px'
+    }}>{texto}</h2>
+  )
 
   return (
     <div>
@@ -253,122 +366,110 @@ function PartidosTab({ torneo, user }) {
               : 'No hay partidos generados.'}
           </p>
           {user && torneo.estado !== 'FINALIZADO' && (
-            <button className="btn btn-primary" onClick={handleGenerar}>
-              ⚡ Generar partidos
-            </button>
+            <button className="btn btn-primary" onClick={handleGenerar}>⚡ Generar partidos</button>
           )}
         </div>
       )}
 
-      {/* Clasificación LIGA */}
-      {esLiga && standingsList.length > 0 && (
-        <div className="card" style={{ padding: '16px 20px', marginBottom: '20px', overflowX: 'auto' }}>
-          <h3 style={{ fontWeight: 700, marginBottom: '12px' }}>📊 Clasificación</h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-            <thead>
-              <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--divider)' }}>
-                {['#','Equipo','PJ','G','E','P','GF','GC','GD','Pts'].map(h => (
-                  <th key={h} style={{ padding: '6px 8px', textAlign: h==='Equipo'?'left':'center', fontWeight: 600 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {standingsList.map((s, i) => (
-                <tr key={s.nombre} style={{ borderBottom: '1px solid var(--divider)' }}>
-                  <td style={{ padding: '8px', textAlign:'center', color:'var(--text-secondary)' }}>{i+1}</td>
-                  <td style={{ padding: '8px', fontWeight: 600 }}>{s.nombre}</td>
-                  {[s.pj,s.g,s.e,s.pe,s.gf,s.gc,s.gd>=0?`+${s.gd}`:s.gd,s.pts].map((v,j) => (
-                    <td key={j} style={{ padding:'8px', textAlign:'center', fontWeight: j===7?700:400,
-                      color: j===7?'var(--primary)':'inherit' }}>{v}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* ── GROUPS_TOURNAMENT ──────────────────────────────────────────────────── */}
+      {esGrupos && partidos.length > 0 && (
+        <>
+          {sectionHeader('📊 Fase de Grupos')}
 
-      {/* Partidos por ronda */}
-      {rondasOrdenadas.map(ronda => (
-        <div key={ronda} style={{ marginBottom: '20px' }}>
-          <h3 style={{ fontWeight: 700, marginBottom: '10px', fontSize: '15px' }}>
-            {esLiga ? '⚽ Partidos' : labelRonda(ronda, rondasOrdenadas.length)}
-          </h3>
-          {rondas[ronda].map(partido => {
-            const done = partido.estado === 'FINALIZADO'
-            const ganadorLocal = done && partido.puntosLocal > partido.puntosVisitante
-            const ganadorVis   = done && partido.puntosVisitante > partido.puntosLocal
-            const s = scores[partido.id] ?? { local: '', visitante: '' }
+          {renderStandingsTable('📊 Clasificación de grupos')}
 
-            return (
-              <div key={partido.id} className="card" style={{
-                padding: '14px 18px', marginBottom: '10px',
-                display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap'
-              }}>
-                {/* Local */}
-                <span style={{ flex: 1, fontWeight: ganadorLocal ? 700 : 400,
-                  color: ganadorLocal ? 'var(--primary)' : 'inherit', textAlign: 'right' }}>
-                  {ganadorLocal ? '🏆 ' : ''}{partido.nombreLocal}
-                </span>
+          <div style={{ marginBottom: '20px' }}>
+            <h3 style={{ fontWeight: 700, marginBottom: '10px', fontSize: '15px' }}>⚽ Partidos de grupos</h3>
+            {gruposPartidos.map(p => renderPartido(p))}
+          </div>
 
-                {/* Marcador */}
-                {done ? (
-                  <span style={{ fontWeight: 800, fontSize: '18px', minWidth: '60px', textAlign: 'center' }}>
-                    {partido.puntosLocal} – {partido.puntosVisitante}
-                  </span>
-                ) : user && torneo.estado !== 'FINALIZADO' ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <input type="number" min="0" max="99" value={s.local}
-                      onChange={e => setScores(prev => ({ ...prev, [partido.id]: { ...s, local: e.target.value } }))}
-                      style={{ width: '52px', textAlign: 'center', padding: '6px' }}
-                    />
-                    <span style={{ fontWeight: 700 }}>–</span>
-                    <input type="number" min="0" max="99" value={s.visitante}
-                      onChange={e => setScores(prev => ({ ...prev, [partido.id]: { ...s, visitante: e.target.value } }))}
-                      style={{ width: '52px', textAlign: 'center', padding: '6px' }}
-                    />
-                  </div>
-                ) : (
-                  <span style={{ color: 'var(--text-secondary)', minWidth: '60px', textAlign: 'center' }}>vs</span>
-                )}
+          {/* Aviso: partidos pendientes */}
+          {user && torneo.estado !== 'FINALIZADO' && !todosGruposFin && sinFaseElim && gruposPartidos.length > 0 && (
+            <div style={{
+              textAlign: 'center', margin: '16px 0', padding: '14px 20px',
+              borderRadius: 'var(--radius)', background: 'rgba(255,193,7,0.1)',
+              border: '1px solid rgba(255,193,7,0.4)'
+            }}>
+              <p style={{ color: '#b8860b', fontSize: '14px', margin: 0 }}>
+                ⏳ Completa todos los partidos de grupos para desbloquear la fase eliminatoria
+              </p>
+            </div>
+          )}
 
-                {/* Visitante */}
-                <span style={{ flex: 1, fontWeight: ganadorVis ? 700 : 400,
-                  color: ganadorVis ? 'var(--primary)' : 'inherit' }}>
-                  {ganadorVis ? '🏆 ' : ''}{partido.nombreVisitante}
-                </span>
+          {/* Botón generar eliminación */}
+          {user && torneo.estado !== 'FINALIZADO' && todosGruposFin && sinFaseElim && (
+            <div style={{ textAlign: 'center', margin: '24px 0' }}>
+              <button className="btn btn-primary" onClick={handleGenerarEliminacion}
+                style={{ fontSize: '15px', padding: '12px 32px' }}>
+                ⚔️ Generar fase eliminatoria
+              </button>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '8px' }}>
+                El top 60% de equipos avanza a eliminación directa
+              </p>
+            </div>
+          )}
 
-                {/* Botones */}
-                {!done && user && torneo.estado !== 'FINALIZADO' && (
-                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                    <button className="btn" style={{ padding: '6px 12px', fontSize: '13px', background: '#1565c0', color: '#fff' }}
-                      onClick={() => handleGuardar(partido.id)}>
-                      ✓ Guardar
-                    </button>
-                    <button className="btn" style={{ padding: '6px 12px', fontSize: '13px', background: '#6a1b9a', color: '#fff' }}
-                      onClick={() => handleSimular(partido.id)}>
-                      🎲 Simular
-                    </button>
-                  </div>
-                )}
+          {/* Fase eliminatoria */}
+          {elimPartidos.length > 0 && (
+            <>
+              <div style={{ marginTop: '32px' }}>
+                {sectionHeader('⚔️ Fase Eliminatoria')}
               </div>
-            )
-          })}
-        </div>
-      ))}
-
-      {/* Siguiente ronda (solo TOURNAMENT) */}
-      {esTournament && partidos.length > 0 && rondaActualDone && user && torneo.estado !== 'FINALIZADO' && (
-        <div style={{ textAlign: 'center', marginTop: '8px' }}>
-          <button className="btn btn-primary" onClick={handleSiguienteRonda}>
-            Siguiente ronda →
-          </button>
-        </div>
+              {rondasOrdElim.map((ronda, idx) => (
+                <div key={ronda} style={{ marginBottom: '20px' }}>
+                  <h3 style={{ fontWeight: 700, marginBottom: '10px', fontSize: '15px' }}>
+                    {labelRondaIdx(idx, rondasOrdElim.length)}
+                  </h3>
+                  {rondasElim[ronda].map(p => renderPartido(p))}
+                </div>
+              ))}
+              {rondaElimDone && user && torneo.estado !== 'FINALIZADO' && (
+                <div style={{ textAlign: 'center', marginTop: '8px' }}>
+                  <button className="btn btn-primary" onClick={handleSiguienteRonda}>
+                    Siguiente ronda →
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </>
       )}
 
-      {/* Botón generar si ya hay partidos */}
+      {/* ── LIGA ───────────────────────────────────────────────────────────────── */}
+      {esLiga && partidos.length > 0 && (
+        <>
+          {renderStandingsTable('📊 Clasificación')}
+          <div style={{ marginBottom: '20px' }}>
+            <h3 style={{ fontWeight: 700, marginBottom: '10px', fontSize: '15px' }}>⚽ Partidos</h3>
+            {partidos.map(p => renderPartido(p))}
+          </div>
+        </>
+      )}
+
+      {/* ── TOURNAMENT ─────────────────────────────────────────────────────────── */}
+      {esTournament && partidos.length > 0 && (
+        <>
+          {rondasOrdTournament.map((ronda, idx) => (
+            <div key={ronda} style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontWeight: 700, marginBottom: '10px', fontSize: '15px' }}>
+                {labelRondaIdx(idx, rondasOrdTournament.length)}
+              </h3>
+              {rondasTournament[ronda].map(p => renderPartido(p))}
+            </div>
+          ))}
+          {rondaTournamentDone && user && torneo.estado !== 'FINALIZADO' && (
+            <div style={{ textAlign: 'center', marginTop: '8px' }}>
+              <button className="btn btn-primary" onClick={handleSiguienteRonda}>
+                Siguiente ronda →
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Reiniciar partidos */}
       {partidos.length > 0 && user && torneo.estado !== 'FINALIZADO' && (
-        <div style={{ textAlign: 'center', marginTop: '12px' }}>
+        <div style={{ textAlign: 'center', marginTop: '16px' }}>
           <button className="btn btn-ghost" style={{ fontSize: '13px' }} onClick={handleGenerar}>
             🔄 Reiniciar partidos
           </button>

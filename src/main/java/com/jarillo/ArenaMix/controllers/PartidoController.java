@@ -160,6 +160,78 @@ public class PartidoController {
         return ResponseEntity.ok(toDTO(partidoRepository.save(partido)));
     }
 
+    // ── Generar fase eliminatoria desde grupos (GROUPS_TOURNAMENT) ────────────
+    @PostMapping("/api/torneos/{torneoId}/partidos/generar-eliminacion")
+    public ResponseEntity<?> generarEliminacion(@PathVariable Integer torneoId) {
+        Torneo torneo = torneoRepository.findById(torneoId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Torneo no encontrado: " + torneoId));
+
+        List<Partido> todos = partidoRepository.findByTorneo_IdOrderByRondaAsc(torneoId);
+
+        List<Partido> gruposPartidos = todos.stream()
+                .filter(p -> p.getRonda() == 1)
+                .collect(Collectors.toList());
+
+        if (gruposPartidos.isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("mensaje", "No hay partidos de grupos generados."));
+        }
+
+        boolean allDone = gruposPartidos.stream().allMatch(p -> "FINALIZADO".equals(p.getEstado()));
+        if (!allDone) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("mensaje", "Hay partidos de grupos pendientes de finalizar."));
+        }
+
+        boolean hasElim = todos.stream().anyMatch(p -> p.getRonda() > 1);
+        if (hasElim) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("mensaje", "La fase eliminatoria ya ha sido generada."));
+        }
+
+        // Calcular clasificación: [pts, gd, gf]
+        Map<String, int[]> standings = new java.util.LinkedHashMap<>();
+        for (Partido p : gruposPartidos) {
+            standings.putIfAbsent(p.getNombreLocal(),    new int[]{0, 0, 0});
+            standings.putIfAbsent(p.getNombreVisitante(), new int[]{0, 0, 0});
+            int[] l = standings.get(p.getNombreLocal());
+            int[] v = standings.get(p.getNombreVisitante());
+            l[2] += p.getPuntosLocal();
+            l[1] += p.getPuntosLocal() - p.getPuntosVisitante();
+            v[2] += p.getPuntosVisitante();
+            v[1] += p.getPuntosVisitante() - p.getPuntosLocal();
+            if (p.getPuntosLocal() > p.getPuntosVisitante())       { l[0] += 3; }
+            else if (p.getPuntosLocal() < p.getPuntosVisitante())  { v[0] += 3; }
+            else                                                    { l[0]++; v[0]++; }
+        }
+
+        // Ordenar por pts desc, gd desc, gf desc
+        List<String> sorted = new ArrayList<>(standings.keySet());
+        sorted.sort((a, b) -> {
+            int[] sa = standings.get(a), sb = standings.get(b);
+            if (sb[0] != sa[0]) return sb[0] - sa[0];
+            if (sb[1] != sa[1]) return sb[1] - sa[1];
+            return sb[2] - sa[2];
+        });
+
+        // Top 60%, mínimo 2 y número par
+        int n = (int) Math.floor(sorted.size() * 0.6);
+        if (n < 2) n = 2;
+        if (n % 2 != 0) n = Math.max(2, n - 1);
+        n = Math.min(n, sorted.size());
+
+        List<String> clasificados = sorted.subList(0, n);
+
+        List<Partido> nuevos = new ArrayList<>();
+        for (int i = 0; i + 1 < clasificados.size(); i += 2) {
+            nuevos.add(crearPartido(torneo, clasificados.get(i), clasificados.get(i + 1), 2));
+        }
+        partidoRepository.saveAll(nuevos);
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(nuevos.stream().map(this::toDTO).collect(Collectors.toList()));
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
     private Partido crearPartido(Torneo torneo, String nombreLocal, String nombreVisitante, int ronda) {
         Partido p = new Partido();

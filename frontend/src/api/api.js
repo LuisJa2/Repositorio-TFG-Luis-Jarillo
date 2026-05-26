@@ -34,6 +34,7 @@ export const removeParticipante  = (torneoId, pid)  => api.delete(`/torneos/${to
 export const getPartidos         = (torneoId)  => api.get(`/torneos/${torneoId}/partidos`)
 export const generarPartidos     = (torneoId)  => api.post(`/torneos/${torneoId}/partidos/generar`)
 export const siguienteRonda      = (torneoId)  => api.post(`/torneos/${torneoId}/partidos/siguiente-ronda`)
+export const generarEliminacion  = (torneoId)  => api.post(`/torneos/${torneoId}/partidos/generar-eliminacion`)
 export const actualizarResultado = (id, data)  => api.put(`/partidos/${id}/resultado`, data)
 export const simularPartido      = (id)        => api.post(`/partidos/${id}/simular`)
 
