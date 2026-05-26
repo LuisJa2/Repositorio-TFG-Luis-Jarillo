@@ -117,6 +117,7 @@ class WelcomeFragment : Fragment() {
     // ── Llamadas a la API ─────────────────────────────────────────────────────
 
     private fun performLogin(email: String, password: String) {
+        toast("Conectando con el servidor…")
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val res = RetrofitClient.api.login(LoginRequest(email, password))
@@ -130,12 +131,13 @@ class WelcomeFragment : Fragment() {
                     else -> toast("Error del servidor (${e.code()})")
                 }
             } catch (e: Exception) {
-                toast("No se pudo conectar con el servidor")
+                toast("No se pudo conectar. El servidor puede estar arrancando, espera unos segundos y vuelve a intentarlo.")
             }
         }
     }
 
     private fun performRegister(username: String, email: String, password: String) {
+        toast("Conectando con el servidor…")
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val res = RetrofitClient.api.registro(RegisterRequest(username, email, password))
@@ -149,7 +151,7 @@ class WelcomeFragment : Fragment() {
                     else -> toast("Error del servidor (${e.code()})")
                 }
             } catch (e: Exception) {
-                toast("No se pudo conectar con el servidor")
+                toast("No se pudo conectar. El servidor puede estar arrancando, espera unos segundos y vuelve a intentarlo.")
             }
         }
     }
