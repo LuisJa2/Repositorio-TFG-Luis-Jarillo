@@ -214,10 +214,10 @@ public class PartidoController {
             return sb[2] - sa[2];
         });
 
-        // Top 60%, mínimo 2 y número par
+        // Top 60%, mínimo 2 y número par (redondear hacia arriba si es impar)
         int n = (int) Math.floor(sorted.size() * 0.6);
         if (n < 2) n = 2;
-        if (n % 2 != 0) n = Math.max(2, n - 1);
+        if (n % 2 != 0) n = Math.min(n + 1, sorted.size());
         n = Math.min(n, sorted.size());
 
         List<String> clasificados = sorted.subList(0, n);
